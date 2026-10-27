@@ -1,3 +1,4 @@
+
 #include "image.h"
 
 void rgb_to_gray(const unsigned char *rgb,

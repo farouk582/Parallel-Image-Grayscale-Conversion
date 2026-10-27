@@ -21,4 +21,7 @@ int save_grayscale(const char *filename,
                    int width,
                    int height);
 
+int parallel_grayscale(const char *input_filename,
+                       const char *output_filename);
+
 #endif

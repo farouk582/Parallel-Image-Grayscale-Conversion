@@ -2,134 +2,111 @@
 
 ## 1. Project Overview
 
-This project converts a color image into a grayscale image using C. The project is designed to use MPI for parallel processing, allowing multiple processes to work on different portions of the image.
+This project converts a color image into a grayscale image using C and MPI (Message Passing Interface).
+
+MPI distributes image pixels across multiple processes. Each process converts its assigned pixels to grayscale, and the root process gathers the results and saves the output image.
 
 ## 2. Grayscale Conversion
 
-A color image contains three color channels for each pixel:
+Each RGB pixel contains three color channels:
 
-- **R:** Red
-- **G:** Green
-- **B:** Blue
+- R: Red
+- G: Green
+- B: Blue
 
-Each RGB pixel is converted into one grayscale value using the following formula:
+The grayscale value is calculated using:
 
 `Gray = 0.299 * R + 0.587 * G + 0.114 * B`
 
 The result is rounded to the nearest integer and stored as an unsigned 8-bit value.
 
-### Implementation
+## 3. Project Structure
 
-The conversion function is implemented in `grayscale.c`:
+| File | Description |
+|---|---|
+| `main.c` | Initializes MPI and receives the input and output image paths from command-line arguments. |
+| `image.h` | Defines the `Image` structure and the function prototypes used by the project. |
+| `parallel.c` | Coordinates parallel processing, distributes RGB data, and gathers grayscale results. |
+| `grayscale.c` | Implements the RGB-to-grayscale conversion function. |
+| `image_io.c` | Loads images into memory using `stb_image`. |
+| `image_output.c` | Saves grayscale images as PNG files using `stb_image_write`. |
+| `stb_image.h` | Library used to load image files. |
+| `stb_image_write.h` | Library used to write image files. |
+| `test_grayscale.c` | Tests the grayscale conversion function with known RGB values. |
+| `test_image_gray.c` | Tests image loading, grayscale conversion, and image saving. |
 
-```c
-void rgb_to_gray(const unsigned char *rgb,
-                 unsigned char *gray,
-                 int pixel_count);
+## 4. How MPI Processing Works
+
+1. The root process loads the input image.
+2. Image dimensions and processing status are shared with all processes.
+3. The RGB pixel data is divided among the processes using `MPI_Scatterv`.
+4. Each process converts its assigned pixels using `rgb_to_gray()`.
+5. The grayscale results are collected by the root process using `MPI_Gatherv`.
+6. The root process saves the final grayscale image to the requested output path.
+
+## 5. Requirements
+
+- GCC or a compatible C compiler.
+- An MPI implementation, such as Open MPI.
+- The provided `stb_image.h` and `stb_image_write.h` files.
+- An input image supported by `stb_image`.
+
+## 6. Build the Project
+
+Compile the MPI application from the project directory:
+
+```bash
+mpicc -Wall -Wextra main.c image_io.c grayscale.c parallel.c image_output.c -o parallel.exe -lm
 ```
 
-**Parameters:**
-- `rgb`: Input array containing 3 bytes per pixel in RGB order.
-- `gray`: Output array containing one grayscale byte per pixel.
-- `pixel_count`: Number of pixels to convert.
+## 7. Run the Project
 
-The function converts each pixel independently and does not perform MPI communication. This allows the parallel-processing component to reuse the same function on each process's assigned pixels.
+The program accepts two command-line arguments:
 
-## 3. Testing the Grayscale Function
+1. Input image path.
+2. Output image path.
 
-The file `test_grayscale.c` tests the conversion function using five known colors.
+Example using four MPI processes:
 
-| Input color | RGB values | Expected grayscale |
-|---|---|---:|
-| Red | (255, 0, 0) | 76 |
-| Green | (0, 255, 0) | 150 |
-| Blue | (0, 0, 255) | 29 |
-| White | (255, 255, 255) | 255 |
-| Black | (0, 0, 0) | 0 |
+```bash
+mpirun -np 4 ./parallel.exe input1.jpg output1.png
+```
 
-**Test status:** All five test values matched the expected results.
+Process another image and use a different output filename:
 
-### Compile and Run the Unit Test
+```bash
+mpirun -np 4 ./parallel.exe input2.jpg output2.png
+```
 
-Using GCC in Windows PowerShell:
+The output image is saved to the path provided as the second argument. Make sure the destination directory exists before running the program.
 
-```powershell
+## 8. Testing the Grayscale Function
+
+Compile the grayscale unit test separately:
+
+```bash
 gcc -Wall -Wextra test_grayscale.c grayscale.c -o test_grayscale.exe
-.\test_grayscale.exe
 ```
 
-Expected output:
+Run it:
 
-```text
-Red   = 76 (expected 76)
-Green = 150 (expected 150)
-Blue  = 29 (expected 29)
-White = 255 (expected 255)
-Black = 0 (expected 0)
+```bash
+./test_grayscale.exe
 ```
 
-## 4. Image Loading and Output
+The unit test checks known RGB colors and their expected grayscale values.
 
-The project uses the `stb_image` and `stb_image_write` libraries to load an input image and save the grayscale result.
+This test checks the conversion function only; it does not verify MPI communication.
 
-- `image_io.c`: Loads the input image as RGB data and releases image memory.
-- `image_output.c`: Saves the grayscale pixel array as a PNG image.
-- `test_image_gray.c`: Standalone integration test for loading an image, converting it to grayscale, and saving the result.
+## 9. Dependencies
 
-The image integration test should be considered verified only after it compiles, runs successfully, and produces an output file that can be opened.
+The project uses the `stb` single-header libraries for image loading and writing.
 
-Example standalone test command:
+Repository: https://github.com/nothings/stb
 
-```powershell
-gcc -Wall -Wextra test_image_gray.c image_io.c grayscale.c image_output.c -o test_image_gray.exe
-.\test_image_gray.exe
-```
+## 10. Notes
 
-This standalone command does not build or test the MPI implementation.
-
-## 5. MPI Parallel Processing — Pending Integration
-
-The parallel-processing component is to be integrated with the grayscale conversion function.
-
-The MPI implementation should:
-
-1. Load the image on the root process.
-2. Share image dimensions and status with other processes.
-3. Divide the RGB pixel data among processes, including uneven partitions when necessary.
-4. Call `rgb_to_gray()` on each process's assigned pixels.
-5. Gather the grayscale results on the root process.
-6. Save the final grayscale image.
-
-`MPI_Scatterv` and `MPI_Gatherv` can be used to support uneven data partitions.
-
-The MPI implementation and complete multi-process execution must be tested separately using a suitable MPI compiler and runtime.
-
-**Important:** `test_grayscale.c` is a unit test for the conversion function; passing it does not verify MPI communication or parallel performance.
-
-## 6. Current Status
-
-- [x] Implement RGB-to-grayscale conversion.
-- [x] Unit-test the conversion using five known colors.
-- [ ] Verify standalone image loading, conversion, and PNG output.
-- [ ] Integrate the conversion function with the MPI implementation.
-- [ ] Test the complete program with multiple MPI processes.
-- [ ] Compare parallel output against a sequential reference.
-- [ ] Measure execution time and evaluate parallel performance.
-
-## 7. Integration Notes
-
-- Keep the function signature of `rgb_to_gray()` consistent across `grayscale.c`, `image.h`, and the parallel-processing implementation.
-- Keep `STB_IMAGE_IMPLEMENTATION` defined in exactly one source file, such as `image_io.c`.
-- Keep `STB_IMAGE_WRITE_IMPLEMENTATION` defined in exactly one source file, such as `image_output.c`.
-- Coordinate shared-header changes with the team before merging.
-- The standalone unit test can use GCC without MPI, provided its source files do not include MPI headers.
-- The complete parallel application must use the team's configured MPI toolchain.
-
-## 8. Project Dependencies
-
-- A C compiler such as GCC.
-- `stb_image.h` for image loading.
-- `stb_image_write.h` for PNG output.
-- An MPI implementation and compatible compiler wrapper for the parallel application.
-
-Repository for the stb libraries: https://github.com/nothings/stb
+- The grayscale conversion formula remains unchanged.
+- MPI uses `MPI_Scatterv` and `MPI_Gatherv` to distribute and collect pixel data.
+- The input and output paths are supplied when running the application.
+- The output filename can be changed for each run.

@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,7 +6,8 @@
 #include <mpi.h>
 #include "image.h"
 
-int parallel_grayscale(void)
+int parallel_grayscale(const char *input_filename,
+                       const char *output_filename)
 {
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -14,43 +16,28 @@ int parallel_grayscale(void)
     Image img = {0, 0, 0, NULL};
     int width = 0, height = 0, pixel_count = 0;
     int loaded = 1;
-    const char *outname = "output/grayscale.png";
 
     if (rank == 0)
     {
-        char filename[1024];
-
-        printf("Enter image path: ");
-        fflush(stdout);
-
-        if (fgets(filename, sizeof(filename), stdin) == NULL)
+        if (!load_image(input_filename, &img))
         {
             loaded = 0;
         }
         else
         {
-            filename[strcspn(filename, "\r\n")] = '\0';
+            long long n = (long long)img.width * img.height;
 
-            if (!load_image(filename, &img))
+            if (n * 3 > INT_MAX)
             {
+                fprintf(stderr, "Image too large.\n");
+                free_image(&img);
                 loaded = 0;
             }
             else
             {
-                long long n = (long long)img.width * img.height;
-
-                if (n * 3 > INT_MAX)
-                {
-                    fprintf(stderr, "Image too large.\n");
-                    free_image(&img);
-                    loaded = 0;
-                }
-                else
-                {
-                    width = img.width;
-                    height = img.height;
-                    pixel_count = (int)n;
-                }
+                width = img.width;
+                height = img.height;
+                pixel_count = (int)n;
             }
         }
     }
@@ -91,6 +78,7 @@ int parallel_grayscale(void)
 
     unsigned char *local_rgb =
         malloc((size_t)(local_pixels > 0 ? local_pixels : 1) * 3);
+
     unsigned char *local_gray =
         malloc((size_t)(local_pixels > 0 ? local_pixels : 1));
 
@@ -98,9 +86,11 @@ int parallel_grayscale(void)
         MPI_Abort(MPI_COMM_WORLD, 1);
 
     unsigned char *gray = NULL;
+
     if (rank == 0)
     {
         gray = malloc((size_t)pixel_count);
+
         if (!gray)
             MPI_Abort(MPI_COMM_WORLD, 1);
     }
@@ -124,10 +114,12 @@ int parallel_grayscale(void)
 
     if (rank == 0)
     {
-        saved = save_grayscale(outname, gray, width, height);
+        saved = save_grayscale(
+            output_filename, gray, width, height
+        );
 
         if (saved)
-            printf("Grayscale image saved as %s\n", outname);
+            printf("Grayscale image saved as %s\n", output_filename);
         else
             fprintf(stderr, "Error saving grayscale image.\n");
 

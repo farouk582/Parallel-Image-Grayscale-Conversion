@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include "image.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -17,6 +18,7 @@ int load_image(const char *filename, Image *img)
     img->height = 0;
     img->channels = 0;
     img->data = NULL;
+
     /* Load the image as RGB */
     img->data = stbi_load(
         filename,
@@ -28,19 +30,21 @@ int load_image(const char *filename, Image *img)
 
     if (img->data == NULL)
     {
-        fprintf(stderr, "Error: Cannot load image '%s': %s\n", filename, stbi_failure_reason());
+        fprintf(stderr, "Error: Cannot load image '%s': %s\n",
+                filename, stbi_failure_reason());
         img->width = 0;
         img->height = 0;
         img->channels = 0;
         return 0;
     }
 
-    /* The loaded data contains 3 channels RGB */
     img->channels = 3;
+
     printf("Image loaded successfully!\n");
     printf("Width: %d\n", img->width);
     printf("Height: %d\n", img->height);
     printf("Channels: %d (RGB)\n", img->channels);
+
     return 1;
 }
 
